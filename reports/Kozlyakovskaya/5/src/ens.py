@@ -4,15 +4,12 @@ import torch
 from torch import nn
 import matplotlib.pyplot as plt
 
-# Фиксируем случайность, чтобы результаты можно было воспроизвести
 torch.manual_seed(42)
 np.random.seed(42)
 
-# 1. Генерация исходных данных
 x = np.arange(0.0, 100.0 + 1e-9, 0.1, dtype=np.float32)
 y = 0.3 * np.cos(0.3 * x) + 0.07 * np.sin(0.3 * x)
 
-# 2. Формирование примеров: 10 предыдущих значений -> следующее значение
 window_size = 10
 X_all = np.array([y[i-window_size:i] 
                   for i in range(window_size, len(y))], 
@@ -22,7 +19,6 @@ target_all = np.array([y[i]
                        dtype=np.float32).reshape(-1, 1)
 target_indices = np.arange(window_size, len(y))
 
-# Первые 80% последовательности для обучения, оставшиеся 20% для тестирования
 split_index = int(len(y) * 0.8)
 train_mask = target_indices < split_index
 test_mask = target_indices >= split_index
@@ -32,7 +28,6 @@ y_train = torch.tensor(target_all[train_mask])
 X_test = torch.tensor(X_all[test_mask])
 y_test = target_all[test_mask]
 
-# 3. Архитектура ИНС: 10 входов -> 4 нейрона Sigmoid -> 1 линейный выход
 class ForecastNet(nn.Module):
     def __init__(self):
         super().__init__()
@@ -42,13 +37,13 @@ class ForecastNet(nn.Module):
 
     def forward(self, x):
         x = self.sigmoid(self.hidden(x))
-        return self.output(x)  # линейная выходная функция
+        return self.output(x) 
 
 model = ForecastNet()
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
-# 4. Обучение
+
 epochs = 1000
 loss_history = []
 
@@ -61,7 +56,7 @@ for epoch in range(epochs):
     optimizer.step()
     loss_history.append(loss.item())
 
-# 5. Получение результатов
+
 model.eval()
 with torch.no_grad():
     train_pred = model(X_train).numpy().flatten()
@@ -70,7 +65,7 @@ with torch.no_grad():
 train_actual = y_train.numpy().flatten()
 test_actual = y_test.flatten()
 
-# Отклонение = эталонное значение - полученное значение
+
 train_table = pd.DataFrame({
     "Эталонное значение": train_actual,
     "Полученное значение": train_pred,
@@ -85,7 +80,6 @@ test_table = pd.DataFrame({
 train_table.to_csv("training_results.csv", index=False, encoding="utf-8-sig")
 test_table.to_csv("forecast_results.csv", index=False, encoding="utf-8-sig")
 
-# График функции на участке обучения
 train_x = x[target_indices[train_mask]]
 plt.figure(figsize=(11, 5))
 plt.plot(train_x, train_actual, label="Эталонная функция")
