@@ -24,20 +24,13 @@ np.random.seed(SEED)
 x = np.arange(0.0, 20.0 + 1e-9, 0.1, dtype=np.float64)
 y = A * np.cos(B * x) + C * np.sin(D * x)
 
-# Нормировка min-max в [0, 1]
-y_min, y_max = float(y.min()), float(y.max())
-ys = (y - y_min) / (y_max - y_min)
-
-def denorm(v):
-    return v * (y_max - y_min) + y_min
-
 # ============================================================
 # 3. Формирование окон (скользящее окно)
 # ============================================================
 X_list, Y_list = [], []
-for i in range(len(ys) - N_IN):
-    X_list.append(ys[i:i + N_IN])
-    Y_list.append(ys[i + N_IN])
+for i in range(len(y) - N_IN):
+    X_list.append(y[i:i + N_IN])
+    Y_list.append(y[i + N_IN])
 
 X = np.asarray(X_list, dtype=np.float32)
 Y = np.asarray(Y_list, dtype=np.float32).reshape(-1, 1)
@@ -86,7 +79,7 @@ def train(alpha, X, Y, epochs, seed=SEED):
 # 6. Подбор alpha
 # ============================================================
 results = []
-for a in [0.01, 0.05, 0.1, 0.3, 0.5]:
+for a in [0.01, 0.05, 0.1, 0.3, 0.5, 1.0, 2.0]: # Добавлены 1.0 и 2.0, т.к. без нормализации градиенты меньше
     _, L = train(a, Xtr, Ytr, epochs=EPOCHS_SEARCH)
     results.append((a, L[-1]))
     print(f"alpha={a:<5} MSE={L[-1]:.6f}")
@@ -104,8 +97,8 @@ model.eval()
 # 8. Результаты на обучении
 # ============================================================
 with torch.no_grad():
-    ptr = denorm(model(torch.from_numpy(Xtr)).numpy().ravel())
-    ttr = denorm(Ytr.ravel())
+    ptr = model(torch.from_numpy(Xtr)).numpy().ravel()
+    ttr = Ytr.ravel()
 
 train_df = pd.DataFrame({
     "Эталон": ttr,
@@ -124,8 +117,8 @@ print(f"\nОбучение: RMSE={rmse_tr:.6f}, MAE={mae_tr:.6f}")
 # 9. Результаты на тесте
 # ============================================================
 with torch.no_grad():
-    pte = denorm(model(torch.from_numpy(Xte)).numpy().ravel())
-    tte = denorm(Yte.ravel())
+    pte = model(torch.from_numpy(Xte)).numpy().ravel()
+    tte = Yte.ravel()
 
 test_df = pd.DataFrame({
     "Эталон": tte,
@@ -173,13 +166,13 @@ plt.close()
 # ============================================================
 # 12. Многошаговый прогноз (рекуррентный)
 # ============================================================
-window = ys[n_train:n_train + N_IN].astype(np.float32).copy()
+window = y[n_train:n_train + N_IN].astype(np.float32).copy()
 fc = []
 with torch.no_grad():
     for _ in range(HORIZON):
         inp = torch.from_numpy(window.reshape(1, -1))
         v = float(model(inp).item())
-        fc.append(denorm(v))
+        fc.append(v)
         window = np.append(window[1:], np.float32(v))
 
 true_fc = y[n_train + N_IN : n_train + N_IN + HORIZON]
