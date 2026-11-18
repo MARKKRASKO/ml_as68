@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# парметры
+# Параметры (Вариант 5)
 A, B, C, D = 0.1, 0.5, 0.09, 0.5
 L, H = 8, 3                 
 EPOCHS = 2000
@@ -73,7 +73,7 @@ def predict(X, params):
     W1, b1, W2, b2 = params
     return sigmoid(X @ W1 + b1) @ W2 + b2
 
-# нормализация
+# Генерация данных без нормализации
 x = np.linspace(0, 20 * np.pi, N)
 y = A * np.cos(B * x) + C * np.sin(D * x)
 
@@ -81,36 +81,30 @@ split = int(N * (1 - TEST_FRAC))
 y_tr_raw, y_te_raw = y[:split], y[split:]
 x_tr_raw, x_te_raw = x[:split], x[split:]
 
-y_mean, y_std = y_tr_raw.mean(), y_tr_raw.std()
-y_tr = (y_tr_raw - y_mean) / y_std
-y_te = (y_te_raw - y_mean) / y_std
+X_tr, Y_tr_true = make_dataset(y_tr_raw, L)
+X_te, Y_te_true = make_dataset(y_te_raw, L)
 
-X_tr, Y_tr_n = make_dataset(y_tr, L)
-X_te, Y_te_n = make_dataset(y_te, L)
-
-Y_tr_true = Y_tr_n * y_std + y_mean
-Y_te_true = Y_te_n * y_std + y_mean
 x_tr_tgt = x_tr_raw[L:]
 x_te_tgt = x_te_raw[L:]
 
-# подбор альфа
+# Подбор alpha (lr)
 print("Подбор alpha (lr):")
 best_lr, best_mse = None, float('inf')
 for lr_try in LR_CANDIDATES:
-    p, _ = train(X_tr, Y_tr_n, lr_try, EPOCHS)
-    mse = np.mean((predict(X_te, p) - Y_te_n) ** 2)
+    p, _ = train(X_tr, Y_tr_true, lr_try, EPOCHS)
+    mse = np.mean((predict(X_te, p) - Y_te_true) ** 2)
     print(f"  lr={lr_try:<6} | MSE_test = {mse:.6f}")
     if mse < best_mse:
         best_mse, best_lr = mse, lr_try
 print(f"\n>>> Лучшее alpha = {best_lr} (MSE_test = {best_mse:.6f})\n")
 
-# обучение с лучшим альфа
-params, loss_history = train(X_tr, Y_tr_n, best_lr, EPOCHS)
+# Обучение с лучшим alpha
+params, loss_history = train(X_tr, Y_tr_true, best_lr, EPOCHS)
 
-train_pred = predict(X_tr, params) * y_std + y_mean
-test_pred  = predict(X_te, params) * y_std + y_mean
+train_pred = predict(X_tr, params)
+test_pred  = predict(X_te, params)
 
-# таблицы
+# Таблицы результатов
 train_df = pd.DataFrame({
     "Эталонное значение": np.round(Y_tr_true.flatten(), 4),
     "Полученное значение": np.round(train_pred.flatten(), 4),
@@ -131,7 +125,7 @@ mae_tr = np.mean(np.abs(train_pred - Y_tr_true))
 mae_te = np.mean(np.abs(test_pred - Y_te_true))
 print(f"\nMAE train = {mae_tr:.4f} | MAE test = {mae_te:.4f}")
 
-# графики
+# Графики
 plt.figure(figsize=(10, 4))
 plt.plot(x_tr_tgt, Y_tr_true, 'k', label="Эталон (train)")
 plt.plot(x_tr_tgt, train_pred, 'b--', label=f"Модель (train), α={best_lr}")
